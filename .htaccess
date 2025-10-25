@@ -1,0 +1,19 @@
+# Enable RewriteEngine
+RewriteEngine On
+
+# Redirect to HTTPS (if you have SSL)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Set default page
+DirectoryIndex pages/index.php
+
+# Protect sensitive files
+<FilesMatch "^\.env$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Enable error reporting (disable in production)
+php_flag display_errors Off
+php_flag log_errors On
