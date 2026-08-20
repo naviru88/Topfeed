@@ -28,5 +28,5 @@ Topfeed is a lightweight blog platform built with HTML, CSS, JavaScript, PHP, an
 
 ## Hosting
 
-- [Live Site](https://topfeed.fwh.is)
+- [Live Site](https://topfeed.fwh.is/Project/pages/index.php)
 - [GitHub Repo](https://github.com/naviru88/Topfeed/tree/59e7002794f3b989cdca78dff6250f979e64aa13)
