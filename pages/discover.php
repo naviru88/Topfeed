@@ -1,12 +1,13 @@
 <?php
 session_start();
-require_once '../includes/db.php';
-require_once '../includes/functions.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 $categories = getCategories();
 $selectedCategory = $_GET['category'] ?? null;
 $blogs = $selectedCategory ? getBlogsByCategory($selectedCategory) : [];
 $themeClass = getThemeClass();
+$csrfToken = generateCsrfToken();
 ?>
 
 <!DOCTYPE html>
@@ -15,10 +16,10 @@ $themeClass = getThemeClass();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discover - Topfeed</title>
-   <link rel="stylesheet" href="/Topfeed/assets/style.css">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>assets/style.css">
 </head>
 <body class="<?= $themeClass ?>">
-  <?php include '../includes/header.php'; ?>
+  <?php include __DIR__ . '/../includes/header.php'; ?>
 
   <main>
     <div class="container">
@@ -47,7 +48,7 @@ $themeClass = getThemeClass();
             <div style="text-align: center; padding: 3rem 0;">
               <p style="color: var(--text-secondary); font-size: 1.125rem;">No blogs in this category yet.</p>
               <?php if (isset($_SESSION['user_id'])): ?>
-                <a href="../blog/create.php" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">Be the first to create one!</a>
+                <a href="<?= BASE_PATH ?>blog/create.php" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">Be the first to create one!</a>
               <?php endif; ?>
             </div>
           <?php else: ?>
@@ -55,10 +56,10 @@ $themeClass = getThemeClass();
               <?php foreach ($blogs as $blog): ?>
                 <div class="blog-tile">
                   <?php if (!empty($blog['thumbnail'])): ?>
-                    <img src="../uploads/<?= htmlspecialchars($blog['thumbnail']) ?>" alt="<?= htmlspecialchars($blog['title']) ?>" class="blog-tile-image">
+                    <img src="<?= BASE_PATH ?>uploads/<?= htmlspecialchars($blog['thumbnail']) ?>" alt="<?= htmlspecialchars($blog['title']) ?>" class="blog-tile-image">
                   <?php else: ?>
                     <div class="blog-tile-image" style="display: flex; align-items: center; justify-content: center; color: white; font-size: 3rem;">
-                      <?= $categories[$selectedCategory] ?>
+                      <?= htmlspecialchars($categories[$selectedCategory] ?? '📝') ?>
                     </div>
                   <?php endif; ?>
                   
@@ -75,8 +76,9 @@ $themeClass = getThemeClass();
                     <div class="blog-actions">
                       <a href="blog.php?id=<?= $blog['id'] ?>" class="btn-read">Read More</a>
                       <?php if (isset($_SESSION['user_id'])): ?>
-                        <form method="POST" action="../blog/save.php" style="margin: 0;">
+                        <form method="POST" action="<?= BASE_PATH ?>blog/save.php" style="margin: 0;">
                           <input type="hidden" name="blog_id" value="<?= $blog['id'] ?>">
+                          <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
                           <button type="submit" class="btn-save">💾</button>
                         </form>
                       <?php endif; ?>
@@ -91,6 +93,6 @@ $themeClass = getThemeClass();
     </div>
   </main>
 
-  <?php include '../includes/footer.php'; ?>
+  <?php include __DIR__ . '/../includes/footer.php'; ?>
 </body>
 </html>

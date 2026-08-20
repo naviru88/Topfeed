@@ -1,26 +1,23 @@
 <?php
 session_start();
-require_once '../includes/db.php';
-require_once '../includes/functions.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 if (!isset($_SESSION['user_id'])) {
-  header("Location: ../auth/login.php");
+  header("Location: " . BASE_PATH . "auth/login.php");
   exit;
 }
 
 $user = getUserById($_SESSION['user_id']);
 
-// Get and clear session messages
 $settingsSuccess = $_SESSION['settings_success'] ?? null;
 $settingsError = $_SESSION['settings_error'] ?? null;
 $themeSuccess = $_SESSION['theme_success'] ?? null;
 $themeError = $_SESSION['theme_error'] ?? null;
-unset($_SESSION['settings_success']);
-unset($_SESSION['settings_error']);
-unset($_SESSION['theme_success']);
-unset($_SESSION['theme_error']);
+unset($_SESSION['settings_success'], $_SESSION['settings_error'], $_SESSION['theme_success'], $_SESSION['theme_error']);
 
 $themeClass = getThemeClass();
+$csrfToken = generateCsrfToken();
 ?>
 
 <!DOCTYPE html>
@@ -29,10 +26,10 @@ $themeClass = getThemeClass();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Settings - Topfeed</title>
-  <link rel="stylesheet" href="/Topfeed/assets/style.css">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>assets/style.css">
 </head>
 <body class="<?= $themeClass ?>">
-  <?php include '../includes/header.php'; ?>
+  <?php include __DIR__ . '/../includes/header.php'; ?>
 
   <main>
     <div class="container">
@@ -57,6 +54,7 @@ $themeClass = getThemeClass();
         <div class="profile-section">
           <h2>🔐 Change Password</h2>
           <form method="POST" action="update_settings.php" class="auth-form">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
             <div class="form-group">
               <label for="current_password">Current Password</label>
               <input type="password" id="current_password" name="current_password" placeholder="Enter current password" required>
@@ -79,6 +77,7 @@ $themeClass = getThemeClass();
         <div class="profile-section">
           <h2>🎨 Appearance</h2>
           <form method="POST" action="update_theme.php" class="auth-form">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
             <div class="form-group">
               <label for="theme">Theme</label>
               <select id="theme" name="theme">
@@ -98,6 +97,7 @@ $themeClass = getThemeClass();
         <div class="profile-section">
           <h2>📧 Email Preferences</h2>
           <form method="POST" action="update_notifications.php" class="auth-form">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
             <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border);">
               <input type="checkbox" id="newsletter" name="newsletter" style="width: 20px; height: 20px;">
               <label for="newsletter" style="margin: 0; cursor: pointer;">Receive newsletter and updates</label>
@@ -111,20 +111,10 @@ $themeClass = getThemeClass();
             <button type="submit" class="btn-primary" style="margin-top: 1rem;">Save Preferences</button>
           </form>
         </div>
-
-        <div class="profile-section" style="border: 2px solid var(--error);">
-          <h2 style="color: var(--error);">⚠️ Danger Zone</h2>
-          <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-            Once you delete your account, there is no going back. Please be certain.
-          </p>
-          <button onclick="if(confirm('Are you sure you want to delete your account? This action cannot be undone!')) window.location.href='delete_account.php';" style="background: var(--error); padding: 0.75rem 1.5rem; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
-            Delete Account
-          </button>
-        </div>
       </div>
     </div>
   </main>
 
-  <?php include '../includes/footer.php'; ?>
+  <?php include __DIR__ . '/../includes/footer.php'; ?>
 </body>
 </html>

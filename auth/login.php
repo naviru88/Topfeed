@@ -1,21 +1,27 @@
 <?php
 session_start();
-require_once '../includes/db.php';
-require_once '../includes/functions.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
+
+$registerSuccess = $_SESSION['register_success'] ?? null;
+unset($_SESSION['register_success']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $email = $_POST['email'];
-  $password = $_POST['password'];
+  verifyCsrfToken();
+  $email = trim($_POST['email'] ?? '');
+  $password = $_POST['password'] ?? '';
   $user = loginUser($email, $password);
   if ($user) {
+    session_regenerate_id(true);
     $_SESSION['user_id'] = $user['id'];
-    header("Location: ../pages/index.php");
+    header("Location: " . BASE_PATH . "pages/index.php");
     exit;
   } else {
     $error = "Invalid credentials.";
   }
 }
 $themeClass = getThemeClass();
+$csrfToken = generateCsrfToken();
 ?>
 
 <!DOCTYPE html>
@@ -24,7 +30,7 @@ $themeClass = getThemeClass();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login - Topfeed</title>
-  <link rel="stylesheet" href="/Topfeed/assets/style.css">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>assets/style.css">
 </head>
 <body class="<?= $themeClass ?>">
   <div class="auth-container">
@@ -33,14 +39,21 @@ $themeClass = getThemeClass();
         <h1>Welcome Back</h1>
         <p>Login to continue to Topfeed</p>
       </div>
-      
+
       <?php if (isset($error)): ?>
         <div class="error-message">
           <?= htmlspecialchars($error) ?>
         </div>
       <?php endif; ?>
+
+      <?php if ($registerSuccess): ?>
+        <div class="success-message">
+          <?= htmlspecialchars($registerSuccess) ?>
+        </div>
+      <?php endif; ?>
       
       <form method="POST" class="auth-form">
+        <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
         <div class="form-group">
           <label for="email">Email</label>
           <input type="email" id="email" name="email" placeholder="Enter your email" required>
@@ -56,7 +69,7 @@ $themeClass = getThemeClass();
       
       <div class="auth-footer">
         <p>Don't have an account? <a href="register.php">Sign Up</a></p>
-        <p><a href="../pages/index.php">Continue as Guest</a></p>
+        <p><a href="<?= BASE_PATH ?>pages/index.php">Continue as Guest</a></p>
       </div>
     </div>
   </div>

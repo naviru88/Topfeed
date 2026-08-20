@@ -36,16 +36,16 @@ function getBlogById($id) {
 
 function createBlog($userId, $title, $content, $category, $thumbnail) {
   global $conn;
-  $stmt = $conn->prepare("INSERT INTO blogPost (user_id, title, content, category, thumbnail, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+  $stmt = $conn->prepare("INSERT INTO blogPost (user_id, title, content, category, thumbnail) VALUES (?, ?, ?, ?, ?)");
   $stmt->bind_param("issss", $userId, $title, $content, $category, $thumbnail);
-  $stmt->execute();
+  return $stmt->execute();
 }
 
-function updateBlog($id, $title, $content) {
+function updateBlog($id, $title, $content, $category, $thumbnail) {
   global $conn;
-  $stmt = $conn->prepare("UPDATE blogPost SET title = ?, content = ?, updated_at = NOW() WHERE id = ?");
-  $stmt->bind_param("ssi", $title, $content, $id);
-  $stmt->execute();
+  $stmt = $conn->prepare("UPDATE blogPost SET title = ?, content = ?, category = ?, thumbnail = ?, updated_at = NOW() WHERE id = ?");
+  $stmt->bind_param("ssssi", $title, $content, $category, $thumbnail, $id);
+  return $stmt->execute();
 }
 
 function deleteBlog($id) {
@@ -86,10 +86,11 @@ function uploadThumbnail($file) {
 
   $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
   $filename = uniqid('blog_', true) . '.' . $extension;
-  $target = '../uploads/' . $filename;
+  $uploadDir = __DIR__ . '/../uploads/';
+  $target = $uploadDir . $filename;
 
-  if (!is_dir('../uploads')) {
-    mkdir('../uploads', 0755, true);
+  if (!is_dir($uploadDir)) {
+    mkdir($uploadDir, 0755, true);
   }
 
   if (!move_uploaded_file($file['tmp_name'], $target)) {
@@ -215,21 +216,13 @@ function getThemeClass() {
     if ($theme === 'dark') {
       return 'dark';
     } elseif ($theme === 'auto') {
-      // Return empty for auto, let JavaScript handle it
       return 'auto';
     }
   }
-  return ''; // Default light mode
+  return '';
 }
 
 function getBasePath() {
-  // Get the current script path
-  $scriptPath = $_SERVER['SCRIPT_NAME'];
-  
-  // Count how many directories deep we are from the root
-  $depth = substr_count($scriptPath, '/') - 2; // -2 because we count from Topfeed/
-  
-  // Return the appropriate number of ../
-  return str_repeat('../', max(0, $depth));
+  return BASE_PATH;
 }
 ?>

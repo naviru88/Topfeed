@@ -1,25 +1,28 @@
 <?php
 session_start();
-require_once '../includes/db.php';
-require_once '../includes/functions.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 if (!isset($_SESSION['user_id'])) {
-  header("Location: ../auth/login.php");
+  header("Location: " . BASE_PATH . "auth/login.php");
   exit;
 }
 
 $categories = getCategories();
 $error = null;
 $success = null;
+$themeClass = getThemeClass();
+$csrfToken = generateCsrfToken();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   try {
-    $title = $_POST['title'] ?? '';
+    verifyCsrfToken();
+    $title = trim($_POST['title'] ?? '');
     $content = $_POST['content'] ?? '';
     $category = $_POST['category'] ?? '';
 
-    if (empty($title) || empty($content)) {
-      throw new Exception("Title and content are required");
+    if (empty($title) || empty($content) || empty($category)) {
+      throw new Exception("Title, category, and content are required");
     }
 
     $thumbnail = null;
@@ -27,16 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $thumbnail = uploadThumbnail($_FILES['thumbnail']);
     }
 
-    $stmt = $conn->prepare("INSERT INTO blogPost (user_id, title, content, category, thumbnail) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("issss", $_SESSION['user_id'], $title, $content, $category, $thumbnail);
-    
-    if ($stmt->execute()) {
-      $success = "Blog post created successfully!";
-      header("Location: ../pages/personal.php");
-      exit;
-    } else {
-      throw new Exception("Failed to create blog post");
-    }
+    createBlog($_SESSION['user_id'], $title, sanitizeHtml($content), $category, $thumbnail);
+    header("Location: " . BASE_PATH . "pages/personal.php");
+    exit;
   } catch (Exception $e) {
     $error = $e->getMessage();
   }
@@ -49,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Create Blog - Topfeed</title>
-  <link rel="stylesheet" href="/Topfeed/assets/style.css">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>assets/style.css">
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <style>
     .create-container {
@@ -62,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       background: var(--surface);
       border-radius: 16px;
       padding: 2rem;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 6px var(--shadow);
     }
 
     .form-header {
@@ -90,10 +86,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .form-group select {
       width: 100%;
       padding: 0.75rem;
-      border: 2px solid #e2e8f0;
+      border: 2px solid var(--border);
       border-radius: 8px;
       font-size: 1rem;
       transition: border-color 0.3s;
+      background: var(--background);
+      color: var(--text-primary);
     }
 
     .form-group input[type="text"]:focus,
@@ -108,21 +106,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     #editor-container {
       height: 400px;
-      background: white;
+      background: var(--surface);
       border-radius: 8px;
+      color: var(--text-primary);
     }
 
     .ql-toolbar {
       border-radius: 8px 8px 0 0;
-      background: #f8f9fa;
-      border: 2px solid #e2e8f0 !important;
+      background: var(--background);
+      border: 2px solid var(--border) !important;
     }
 
     .ql-container {
       border-radius: 0 0 8px 8px;
-      border: 2px solid #e2e8f0 !important;
+      border: 2px solid var(--border) !important;
       border-top: none !important;
       font-size: 16px;
+    }
+
+    .ql-editor {
+      min-height: 300px;
+      color: var(--text-primary);
+    }
+
+    .ql-editor.ql-blank::before {
+      color: var(--text-secondary);
     }
 
     /* Fix list alignment */
@@ -137,162 +145,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     /* Font families in editor */
-    .ql-font-arial {
-      font-family: Arial, sans-serif;
-    }
-    .ql-font-comic-sans {
-      font-family: 'Comic Sans MS', cursive;
-    }
-    .ql-font-courier {
-      font-family: 'Courier New', monospace;
-    }
-    .ql-font-georgia {
-      font-family: Georgia, serif;
-    }
-    .ql-font-helvetica {
-      font-family: Helvetica, sans-serif;
-    }
-    .ql-font-lucida {
-      font-family: 'Lucida Sans Unicode', sans-serif;
-    }
-    .ql-font-times {
-      font-family: 'Times New Roman', serif;
-    }
-    .ql-font-verdana {
-      font-family: Verdana, sans-serif;
-    }
+    .ql-font-arial { font-family: Arial, sans-serif; }
+    .ql-font-comic-sans { font-family: 'Comic Sans MS', cursive; }
+    .ql-font-courier { font-family: 'Courier New', monospace; }
+    .ql-font-georgia { font-family: Georgia, serif; }
+    .ql-font-helvetica { font-family: Helvetica, sans-serif; }
+    .ql-font-lucida { font-family: 'Lucida Sans Unicode', sans-serif; }
+    .ql-font-times { font-family: 'Times New Roman', serif; }
+    .ql-font-verdana { font-family: Verdana, sans-serif; }
 
     /* Dropdown styling - Font picker */
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
-    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before {
-      content: 'Arial';
-      font-family: Arial, sans-serif !important;
-    }
-
+    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before { content: 'Arial'; font-family: Arial, sans-serif !important; }
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="comic-sans"]::before,
-    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="comic-sans"]::before {
-      content: 'Comic Sans';
-      font-family: 'Comic Sans MS', cursive !important;
-    }
-
+    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="comic-sans"]::before { content: 'Comic Sans'; font-family: 'Comic Sans MS', cursive !important; }
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="courier"]::before,
-    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="courier"]::before {
-      content: 'Courier';
-      font-family: 'Courier New', monospace !important;
-    }
-
+    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="courier"]::before { content: 'Courier'; font-family: 'Courier New', monospace !important; }
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="georgia"]::before,
-    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before {
-      content: 'Georgia';
-      font-family: Georgia, serif !important;
-    }
-
+    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before { content: 'Georgia'; font-family: Georgia, serif !important; }
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="helvetica"]::before,
-    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="helvetica"]::before {
-      content: 'Helvetica';
-      font-family: Helvetica, sans-serif !important;
-    }
-
+    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="helvetica"]::before { content: 'Helvetica'; font-family: Helvetica, sans-serif !important; }
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="lucida"]::before,
-    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="lucida"]::before {
-      content: 'Lucida';
-      font-family: 'Lucida Sans Unicode', sans-serif !important;
-    }
-
+    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="lucida"]::before { content: 'Lucida'; font-family: 'Lucida Sans Unicode', sans-serif !important; }
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="times"]::before,
-    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="times"]::before {
-      content: 'Times New Roman';
-      font-family: 'Times New Roman', serif !important;
-    }
-
+    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="times"]::before { content: 'Times New Roman'; font-family: 'Times New Roman', serif !important; }
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="verdana"]::before,
-    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="verdana"]::before {
-      content: 'Verdana';
-      font-family: Verdana, sans-serif !important;
-    }
-
-    .ql-snow .ql-picker.ql-font .ql-picker-label:not([data-value])::before {
-      content: 'Sans Serif';
-      font-family: sans-serif !important;
-    }
+    .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="verdana"]::before { content: 'Verdana'; font-family: Verdana, sans-serif !important; }
+    .ql-snow .ql-picker.ql-font .ql-picker-label:not([data-value])::before { content: 'Sans Serif'; font-family: sans-serif !important; }
 
     /* Font size labels */
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="10px"]::before,
-    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10px"]::before {
-      content: '10px';
-      font-size: 10px !important;
-    }
-
+    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10px"]::before { content: '10px'; font-size: 10px !important; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before,
-    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before {
-      content: '12px';
-      font-size: 12px !important;
-    }
-
+    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before { content: '12px'; font-size: 12px !important; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="14px"]::before,
-    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14px"]::before {
-      content: '14px';
-      font-size: 14px !important;
-    }
-
+    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14px"]::before { content: '14px'; font-size: 14px !important; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="16px"]::before,
-    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="16px"]::before {
-      content: '16px';
-      font-size: 16px !important;
-    }
-
+    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="16px"]::before { content: '16px'; font-size: 16px !important; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="18px"]::before,
-    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="18px"]::before {
-      content: '18px';
-      font-size: 18px !important;
-    }
-
+    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="18px"]::before { content: '18px'; font-size: 18px !important; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="20px"]::before,
-    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="20px"]::before {
-      content: '20px';
-      font-size: 20px !important;
-    }
-
+    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="20px"]::before { content: '20px'; font-size: 20px !important; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="24px"]::before,
-    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24px"]::before {
-      content: '24px';
-      font-size: 24px !important;
-    }
-
+    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24px"]::before { content: '24px'; font-size: 24px !important; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="32px"]::before,
-    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="32px"]::before {
-      content: '32px';
-      font-size: 32px !important;
-    }
-
+    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="32px"]::before { content: '32px'; font-size: 32px !important; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="42px"]::before,
-    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="42px"]::before {
-      content: '42px';
-      font-size: 42px !important;
-    }
-
+    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="42px"]::before { content: '42px'; font-size: 42px !important; }
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="54px"]::before,
-    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="54px"]::before {
-      content: '54px';
-      font-size: 54px !important;
-    }
-
-    .ql-snow .ql-picker.ql-size .ql-picker-label:not([data-value])::before {
-      content: 'Normal';
-    }
+    .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="54px"]::before { content: '54px'; font-size: 54px !important; }
+    .ql-snow .ql-picker.ql-size .ql-picker-label:not([data-value])::before { content: 'Normal'; }
 
     /* Undo/Redo button styling */
-    .ql-snow .ql-toolbar button.ql-undo::before {
-      content: '↶';
-      font-size: 18px;
-      font-weight: bold;
-    }
-
-    .ql-snow .ql-toolbar button.ql-redo::before {
-      content: '↷';
-      font-size: 18px;
-      font-weight: bold;
-    }
+    .ql-snow .ql-toolbar button.ql-undo::before { content: '↶'; font-size: 18px; font-weight: bold; }
+    .ql-snow .ql-toolbar button.ql-redo::before { content: '↷'; font-size: 18px; font-weight: bold; }
 
     .btn-group {
       display: flex;
@@ -312,23 +218,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       display: inline-block;
     }
 
-    .btn-primary {
+    .btn-action {
       background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
       color: white;
     }
 
-    .btn-primary:hover {
+    .btn-action:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 4px 12px var(--shadow-lg);
     }
 
-    .btn-secondary {
-      background: #e2e8f0;
+    .btn-cancel {
+      background: var(--border);
       color: var(--text-primary);
     }
 
-    .btn-secondary:hover {
-      background: #cbd5e0;
+    .btn-cancel:hover {
+      opacity: 0.8;
     }
 
     .alert {
@@ -350,13 +256,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
   </style>
 </head>
-<body>
-  <?php include '../includes/header.php'; ?>
+<body class="<?= $themeClass ?>">
+  <?php include __DIR__ . '/../includes/header.php'; ?>
 
   <div class="create-container">
     <div class="create-form">
       <div class="form-header">
-        <h1>✍️ Create New Blog</h1>
+        <h1>Create New Blog</h1>
         <p style="color: var(--text-secondary);">Share your thoughts with the world</p>
       </div>
 
@@ -364,11 +270,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
       <?php endif; ?>
 
-      <?php if ($success): ?>
-        <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
-      <?php endif; ?>
-
       <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
         <div class="form-group">
           <label for="title">Blog Title *</label>
           <input type="text" id="title" name="title" required placeholder="Enter your blog title...">
@@ -396,33 +299,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <div class="btn-group">
-          <button type="submit" class="btn btn-primary">📤 Publish Blog</button>
-          <a href="../pages/personal.php" class="btn btn-secondary">Cancel</a>
+          <button type="submit" class="btn btn-action">Publish Blog</button>
+          <a href="<?= BASE_PATH ?>pages/personal.php" class="btn btn-cancel">Cancel</a>
         </div>
       </form>
     </div>
   </div>
 
-  <?php include '../includes/footer.php'; ?>
+  <?php include __DIR__ . '/../includes/footer.php'; ?>
 
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
   <script>
-    // Register custom fonts
     var Font = Quill.import('formats/font');
     Font.whitelist = ['arial', 'comic-sans', 'courier', 'georgia', 'helvetica', 'lucida', 'times', 'verdana'];
     Quill.register(Font, true);
 
-    // Register custom sizes
     var Size = Quill.import('attributors/style/size');
     Size.whitelist = ['10px', '12px', '14px', '16px', '18px', '20px', '24px', '32px', '42px', '54px'];
     Quill.register(Size, true);
 
-    // Custom undo/redo icons
     var icons = Quill.import('ui/icons');
     icons['undo'] = '↶';
     icons['redo'] = '↷';
 
-    // Initialize Quill editor
     var quill = new Quill('#editor-container', {
       theme: 'snow',
       modules: {
@@ -441,25 +340,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ['undo', 'redo']
           ],
           handlers: {
-            undo: function() {
-              this.quill.history.undo();
-            },
-            redo: function() {
-              this.quill.history.redo();
-            },
+            undo: function() { this.quill.history.undo(); },
+            redo: function() { this.quill.history.redo(); },
             image: imageHandler
           }
         },
-        history: {
-          delay: 1000,
-          maxStack: 50,
-          userOnly: true
-        }
+        history: { delay: 1000, maxStack: 50, userOnly: true }
       },
       placeholder: 'Start writing your blog content...'
     });
 
-    // Image upload handler
     function imageHandler() {
       const input = document.createElement('input');
       input.setAttribute('type', 'file');
@@ -471,15 +361,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (file) {
           const formData = new FormData();
           formData.append('image', file);
-
           try {
-            const response = await fetch('../blog/upload_image.php', {
+            const response = await fetch('<?= BASE_PATH ?>blog/upload_image.php', {
               method: 'POST',
               body: formData
             });
-
             const data = await response.json();
-            
             if (data.url) {
               const range = quill.getSelection(true);
               quill.insertEmbed(range.index, 'image', data.url);
@@ -494,22 +381,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       };
     }
 
-    // Save content before form submission
     document.querySelector('form').onsubmit = function() {
       document.getElementById('content').value = quill.root.innerHTML;
     };
-
-    // Keyboard shortcuts for undo/redo
-    document.addEventListener('keydown', function(e) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        quill.history.undo();
-      }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
-        e.preventDefault();
-        quill.history.redo();
-      }
-    });
   </script>
 </body>
 </html>

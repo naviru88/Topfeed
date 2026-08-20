@@ -1,10 +1,10 @@
 <?php
 session_start();
-require_once '../includes/db.php';
-require_once '../includes/functions.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 if (!isset($_SESSION['user_id'])) {
-  header("Location: ../auth/login.php");
+  header("Location: " . BASE_PATH . "auth/login.php");
   exit;
 }
 
@@ -16,6 +16,7 @@ $history = getViewHistory($_SESSION['user_id']);
 $deleteSuccess = $_SESSION['delete_success'] ?? null;
 unset($_SESSION['delete_success']);
 $themeClass = getThemeClass();
+$csrfToken = generateCsrfToken();
 ?>
 
 <!DOCTYPE html>
@@ -24,10 +25,10 @@ $themeClass = getThemeClass();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Profile - Topfeed</title>
-  <link rel="stylesheet" href="/Topfeed/assets/style.css">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>assets/style.css">
 </head>
 <body class="<?= $themeClass ?>">
-  <?php include '../includes/header.php'; ?>
+  <?php include __DIR__ . '/../includes/header.php'; ?>
 
   <main>
     <div class="container">
@@ -54,13 +55,13 @@ $themeClass = getThemeClass();
       <div class="profile-section">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
           <h2>📝 Published Blogs (<?= count($published) ?>)</h2>
-          <a href="../blog/create.php" class="btn-primary" style="text-decoration: none; padding: 0.5rem 1rem; font-size: 0.875rem;">+ New Blog</a>
+          <a href="<?= BASE_PATH ?>blog/create.php" class="btn-primary" style="text-decoration: none; padding: 0.5rem 1rem; font-size: 0.875rem;">+ New Blog</a>
         </div>
         
         <?php if (empty($published)): ?>
           <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
             <p>You haven't published any blogs yet.</p>
-            <a href="../blog/create.php" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">Create Your First Blog</a>
+            <a href="<?= BASE_PATH ?>blog/create.php" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">Create Your First Blog</a>
           </div>
         <?php else: ?>
           <ul>
@@ -79,8 +80,12 @@ $themeClass = getThemeClass();
                     </div>
                   </div>
                   <div class="blog-list-actions">
-                    <a href="../blog/update.php?id=<?= $blog['id'] ?>" class="btn-small btn-edit">Edit</a>
-                    <a href="../blog/delete.php?id=<?= $blog['id'] ?>" class="btn-small btn-delete" onclick="return confirm('Are you sure you want to delete this blog?')">Delete</a>
+                    <a href="<?= BASE_PATH ?>blog/update.php?id=<?= $blog['id'] ?>" class="btn-small btn-edit">Edit</a>
+                    <form method="POST" action="<?= BASE_PATH ?>blog/delete.php" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this blog?')">
+                      <input type="hidden" name="blog_id" value="<?= $blog['id'] ?>">
+                      <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+                      <button type="submit" class="btn-small btn-delete">Delete</button>
+                    </form>
                   </div>
                 </div>
               </li>
@@ -94,7 +99,7 @@ $themeClass = getThemeClass();
         <?php if (empty($saved)): ?>
           <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
             <p>You haven't saved any blogs yet.</p>
-            <a href="index.php" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">Explore Blogs</a>
+            <a href="<?= BASE_PATH ?>pages/index.php" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">Explore Blogs</a>
           </div>
         <?php else: ?>
           <ul>
@@ -134,6 +139,6 @@ $themeClass = getThemeClass();
     </div>
   </main>
 
-  <?php include '../includes/footer.php'; ?>
+  <?php include __DIR__ . '/../includes/footer.php'; ?>
 </body>
 </html>

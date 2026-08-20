@@ -1,22 +1,26 @@
 <?php
 session_start();
-require_once '../includes/db.php';
-require_once '../includes/functions.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
-if (!isset($_GET['id'])) {
-  header("Location: index.php");
+if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+  header("Location: " . BASE_PATH . "pages/index.php");
   exit;
 }
 
-$blog = getBlogById($_GET['id']);
+$blog = getBlogById((int)$_GET['id']);
 if (!$blog) {
-  echo "Blog not found.";
+  echo "<h1>Blog not found.</h1><p><a href='" . BASE_PATH . "pages/index.php'>Go back home</a></p>";
   exit;
 }
 
 if (isset($_SESSION['user_id'])) {
   logViewHistory($_SESSION['user_id'], $blog['id']);
 }
+
+$themeClass = getThemeClass();
+$csrfToken = generateCsrfToken();
+$canEdit = isset($_SESSION['user_id']) && isBlogOwner($_SESSION['user_id'], $blog['id']);
 ?>
 
 <!DOCTYPE html>
@@ -25,7 +29,7 @@ if (isset($_SESSION['user_id'])) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= htmlspecialchars($blog['title']) ?> - Topfeed</title>
-  <link rel="stylesheet" href="/Topfeed/assets/style.css">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>assets/style.css">
   <style>
     .blog-content {
       font-size: 1.125rem;
@@ -90,15 +94,15 @@ if (isset($_SESSION['user_id'])) {
     }
   </style>
 </head>
-<body>
-  <?php include '../includes/header.php'; ?>
+<body class="<?= $themeClass ?>">
+  <?php include __DIR__ . '/../includes/header.php'; ?>
 
   <main>
     <div class="container">
       <article style="max-width: 800px; margin: 0 auto;">
         <div class="profile-section">
           <?php if (!empty($blog['thumbnail'])): ?>
-            <img src="../uploads/<?= htmlspecialchars($blog['thumbnail']) ?>" alt="<?= htmlspecialchars($blog['title']) ?>" style="width: 100%; height: 400px; object-fit: cover; border-radius: 12px; margin-bottom: 2rem;">
+            <img src="<?= BASE_PATH ?>uploads/<?= htmlspecialchars($blog['thumbnail']) ?>" alt="<?= htmlspecialchars($blog['title']) ?>" style="width: 100%; height: 400px; object-fit: cover; border-radius: 12px; margin-bottom: 2rem;">
           <?php endif; ?>
           
           <div style="margin-bottom: 2rem;">
@@ -119,31 +123,43 @@ if (isset($_SESSION['user_id'])) {
           </div>
           
           <div class="blog-content">
-            <?= $blog['content'] ?>
+            <?= sanitizeHtml($blog['content']) ?>
           </div>
+
+          <?php if ($canEdit): ?>
+            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid var(--border); display: flex; gap: 1rem;">
+              <a href="<?= BASE_PATH ?>blog/update.php?id=<?= $blog['id'] ?>" class="btn-small btn-edit" style="padding: 0.75rem 1.5rem; font-size: 1rem;">✏️ Edit</a>
+              <form method="POST" action="<?= BASE_PATH ?>blog/delete.php" onsubmit="return confirm('Are you sure you want to delete this blog?')">
+                <input type="hidden" name="blog_id" value="<?= $blog['id'] ?>">
+                <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+                <button type="submit" class="btn-small btn-delete" style="padding: 0.75rem 1.5rem; font-size: 1rem;">🗑️ Delete</button>
+              </form>
+            </div>
+          <?php endif; ?>
 
           <?php if (isset($_SESSION['user_id'])): ?>
             <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid var(--border);">
-              <form method="POST" action="../blog/save.php">
+              <form method="POST" action="<?= BASE_PATH ?>blog/save.php">
                 <input type="hidden" name="blog_id" value="<?= $blog['id'] ?>">
+                <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
                 <button type="submit" class="btn-primary" style="width: 100%;">💾 Save to Read Later</button>
               </form>
             </div>
           <?php else: ?>
             <div style="margin-top: 2rem; padding: 1.5rem; background: var(--background); border-radius: 12px; text-align: center;">
               <p style="margin-bottom: 1rem; color: var(--text-secondary);">Want to save this blog?</p>
-              <a href="../auth/login.php" class="btn-primary" style="text-decoration: none; display: inline-block;">Login to Save</a>
+              <a href="<?= BASE_PATH ?>auth/login.php" class="btn-primary" style="text-decoration: none; display: inline-block;">Login to Save</a>
             </div>
           <?php endif; ?>
         </div>
         
         <div style="text-align: center; margin-top: 2rem;">
-          <a href="index.php" style="color: var(--primary); text-decoration: none; font-weight: 600;">← Back to Home</a>
+          <a href="<?= BASE_PATH ?>pages/index.php" style="color: var(--primary); text-decoration: none; font-weight: 600;">← Back to Home</a>
         </div>
       </article>
     </div>
   </main>
 
-  <?php include '../includes/footer.php'; ?>
+  <?php include __DIR__ . '/../includes/footer.php'; ?>
 </body>
 </html>

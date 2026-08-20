@@ -1,16 +1,15 @@
 <?php
 session_start();
-require_once '../includes/db.php';
-require_once '../includes/functions.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 $blogs = getAllBlogs();
-
 $saveSuccess = $_SESSION['save_success'] ?? null;
 $saveError = $_SESSION['save_error'] ?? null;
-unset($_SESSION['save_success']);
-unset($_SESSION['save_error']);
+unset($_SESSION['save_success'], $_SESSION['save_error']);
 
 $themeClass = getThemeClass();
+$csrfToken = generateCsrfToken();
 ?>
 
 <!DOCTYPE html>
@@ -19,10 +18,10 @@ $themeClass = getThemeClass();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Topfeed - Discover Amazing Blogs</title>
-  <link rel="stylesheet" href="/Topfeed/assets/style.css">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>assets/style.css">
 </head>
 <body class="<?= $themeClass ?>">
-  <?php include '../includes/header.php'; ?>
+  <?php include __DIR__ . '/../includes/header.php'; ?>
 
   <main>
     <div class="container">
@@ -49,16 +48,16 @@ $themeClass = getThemeClass();
             <h2>No blogs yet</h2>
             <p style="color: var(--text-secondary); margin: 1rem 0;">Be the first to create a blog and share your story!</p>
             <?php if (isset($_SESSION['user_id'])): ?>
-              <a href="../blog/create.php" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">Create Your First Blog</a>
+              <a href="<?= BASE_PATH ?>blog/create.php" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">Create Your First Blog</a>
             <?php else: ?>
-              <a href="../auth/register.php" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">Sign Up to Start Blogging</a>
+              <a href="<?= BASE_PATH ?>auth/register.php" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">Sign Up to Start Blogging</a>
             <?php endif; ?>
           </div>
         <?php else: ?>
           <?php foreach ($blogs as $blog): ?>
             <div class="blog-tile">
               <?php if (!empty($blog['thumbnail'])): ?>
-                <img src="../uploads/<?= htmlspecialchars($blog['thumbnail']) ?>" alt="<?= htmlspecialchars($blog['title']) ?>" class="blog-tile-image">
+                <img src="<?= BASE_PATH ?>uploads/<?= htmlspecialchars($blog['thumbnail']) ?>" alt="<?= htmlspecialchars($blog['title']) ?>" class="blog-tile-image">
               <?php else: ?>
                 <div class="blog-tile-image" style="display: flex; align-items: center; justify-content: center; color: white; font-size: 3rem;">
                   📝
@@ -78,10 +77,11 @@ $themeClass = getThemeClass();
                 <p class="blog-excerpt"><?= substr(strip_tags($blog['content']), 0, 120) ?>...</p>
                 
                 <div class="blog-actions">
-                  <a href="blog.php?id=<?= $blog['id'] ?>" class="btn-read">Read More</a>
+                  <a href="<?= BASE_PATH ?>pages/blog.php?id=<?= $blog['id'] ?>" class="btn-read">Read More</a>
                   <?php if (isset($_SESSION['user_id'])): ?>
-                    <form method="POST" action="../blog/save.php" style="margin: 0;">
+                    <form method="POST" action="<?= BASE_PATH ?>blog/save.php" style="margin: 0;">
                       <input type="hidden" name="blog_id" value="<?= $blog['id'] ?>">
+                      <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
                       <button type="submit" class="btn-save">💾</button>
                     </form>
                   <?php endif; ?>
@@ -94,6 +94,6 @@ $themeClass = getThemeClass();
     </div>
   </main>
 
-  <?php include '../includes/footer.php'; ?>
+  <?php include __DIR__ . '/../includes/footer.php'; ?>
 </body>
 </html>

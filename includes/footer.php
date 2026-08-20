@@ -11,12 +11,13 @@
       <div>
         <h4 style="margin-bottom: 1rem; font-weight: 600;">Quick Links</h4>
         <ul style="list-style: none;">
-          <li style="margin-bottom: 0.5rem;"><a href="index.php" style="color: var(--text-secondary); text-decoration: none;">Home</a></li>
-          <li style="margin-bottom: 0.5rem;"><a href="discover.php" style="color: var(--text-secondary); text-decoration: none;">Discover</a></li>
-          <li style="margin-bottom: 0.5rem;"><a href="personal.php" style="color: var(--text-secondary); text-decoration: none;">My Page</a></li>
+          <li style="margin-bottom: 0.5rem;"><a href="<?= BASE_PATH ?>pages/index.php" style="color: var(--text-secondary); text-decoration: none;">Home</a></li>
+          <li style="margin-bottom: 0.5rem;"><a href="<?= BASE_PATH ?>pages/discover.php" style="color: var(--text-secondary); text-decoration: none;">Discover</a></li>
+          <li style="margin-bottom: 0.5rem;"><a href="<?= BASE_PATH ?>pages/personal.php" style="color: var(--text-secondary); text-decoration: none;">My Page</a></li>
         </ul>
       </div>
-      
+    </div>
+    
     <div style="border-top: 1px solid var(--border); padding-top: 1.5rem; text-align: center;">
       <p style="color: var(--text-secondary);">&copy; 2025 Topfeed. All rights reserved.</p>
     </div>

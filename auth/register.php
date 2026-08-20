@@ -1,22 +1,34 @@
 <?php
 session_start();
-require_once '../includes/db.php';
-require_once '../includes/functions.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
+
+// Redirect logged-in users away from register
+if (isset($_SESSION['user_id'])) {
+  header("Location: " . BASE_PATH . "pages/index.php");
+  exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $username = $_POST['username'];
-  $email = $_POST['email'];
-  $password = $_POST['password'];
+  verifyCsrfToken();
+  $username = trim($_POST['username'] ?? '');
+  $email = trim($_POST['email'] ?? '');
+  $password = $_POST['password'] ?? '';
 
-  if (registerUser($username, $email, $password)) {
+  if (strlen($username) < 2 || strlen($username) > 100) {
+    $error = "Username must be between 2 and 100 characters.";
+  } elseif (strlen($password) < 6) {
+    $error = "Password must be at least 6 characters.";
+  } elseif (registerUser($username, $email, $password)) {
     $_SESSION['register_success'] = "Registration successful! Please login.";
-    header("Location: login.php");
+    header("Location: " . BASE_PATH . "auth/login.php");
     exit;
   } else {
     $error = "Registration failed. Email may already be in use.";
   }
 }
 $themeClass = getThemeClass();
+$csrfToken = generateCsrfToken();
 ?>
 
 <!DOCTYPE html>
@@ -25,7 +37,7 @@ $themeClass = getThemeClass();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Register - Topfeed</title>
-  <link rel="stylesheet" href="/Topfeed/assets/style.css">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>assets/style.css">
 </head>
 <body class="<?= $themeClass ?>">
   <div class="auth-container">
@@ -42,9 +54,10 @@ $themeClass = getThemeClass();
       <?php endif; ?>
       
       <form method="POST" class="auth-form">
+        <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
         <div class="form-group">
           <label for="username">Username</label>
-          <input type="text" id="username" name="username" placeholder="Choose a username" required>
+          <input type="text" id="username" name="username" placeholder="Choose a username" required minlength="2" maxlength="100">
         </div>
         
         <div class="form-group">

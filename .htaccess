@@ -9,11 +9,8 @@ RewriteEngine On
 DirectoryIndex pages/index.php
 
 # Protect sensitive files
-<FilesMatch "^\.env$">
+<FilesMatch "^\.(env|git|htaccess)$">
     Order allow,deny
     Deny from all
 </FilesMatch>
 
-# Enable error reporting (disable in production)
-php_flag display_errors Off
-php_flag log_errors On

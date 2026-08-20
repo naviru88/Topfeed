@@ -1,45 +1,56 @@
 <?php
 session_start();
-require_once '../includes/db.php';
-require_once '../includes/functions.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 if (!isset($_SESSION['user_id'])) {
-  header("Location: ../auth/login.php");
+  header("Location: " . BASE_PATH . "auth/login.php");
   exit;
 }
 
-$blogId = $_GET['id'] ?? null;
+// POST-only deletion to prevent CSRF via link injection
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  header("Location: " . BASE_PATH . "pages/personal.php");
+  exit;
+}
 
-if (!$blogId) {
-  header("Location: ../pages/personal.php");
+verifyCsrfToken();
+
+$blogId = intval($_POST['blog_id'] ?? 0);
+
+if ($blogId <= 0) {
+  $_SESSION['settings_error'] = "Invalid blog ID.";
+  header("Location: " . BASE_PATH . "pages/personal.php");
   exit;
 }
 
 $blog = getBlogById($blogId);
 
-// Validate blog exists
 if (!$blog) {
-  die("Blog not found.");
+  $_SESSION['settings_error'] = "Blog not found.";
+  header("Location: " . BASE_PATH . "pages/personal.php");
+  exit;
 }
 
-// Validate user owns the blog
 if (!isBlogOwner($_SESSION['user_id'], $blogId)) {
-  die("Unauthorized access. You can only delete your own blogs.");
+  $_SESSION['settings_error'] = "Unauthorized access.";
+  header("Location: " . BASE_PATH . "pages/personal.php");
+  exit;
 }
 
 // Delete the blog
-deleteBlog($blogId);
-
-// Optional: Delete the thumbnail file from uploads directory
-if (!empty($blog['thumbnail'])) {
-  $thumbnailPath = '../uploads/' . $blog['thumbnail'];
-  if (file_exists($thumbnailPath)) {
-    unlink($thumbnailPath);
+if (deleteBlog($blogId)) {
+  // Delete the thumbnail file
+  if (!empty($blog['thumbnail'])) {
+    $thumbnailPath = __DIR__ . '/../uploads/' . $blog['thumbnail'];
+    if (file_exists($thumbnailPath)) {
+      unlink($thumbnailPath);
+    }
   }
+  $_SESSION['delete_success'] = "Blog deleted successfully!";
+} else {
+  $_SESSION['settings_error'] = "Failed to delete blog.";
 }
 
-// Redirect to personal page with success message
-$_SESSION['delete_success'] = "Blog deleted successfully!";
-header("Location: ../pages/personal.php");
+header("Location: " . BASE_PATH . "pages/personal.php");
 exit;
-?>

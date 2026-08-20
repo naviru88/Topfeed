@@ -1,6 +1,3 @@
-CREATE DATABASE IF NOT EXISTS topfeed_db;
-USE topfeed_db;
-
 CREATE TABLE user (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(100) NOT NULL,

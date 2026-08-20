@@ -1,22 +1,19 @@
 <?php
 session_start();
-require_once '../includes/db.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 if (!isset($_SESSION['user_id'])) {
-  header("Location: ../auth/login.php");
+  header("Location: " . BASE_PATH . "auth/login.php");
   exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['theme'])) {
+  verifyCsrfToken();
   $theme = $_POST['theme'];
   
-  // Validate theme value
   $allowedThemes = ['light', 'dark', 'auto'];
   if (in_array($theme, $allowedThemes)) {
-    // Store theme preference in session
-    $_SESSION['theme'] = $theme;
-    
-    // Optionally, store in database
     $userId = $_SESSION['user_id'];
     $stmt = $conn->prepare("UPDATE user SET theme = ? WHERE id = ?");
     $stmt->bind_param("si", $theme, $userId);
@@ -28,6 +25,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['theme'])) {
   }
 }
 
-header("Location: settings.php");
+header("Location: " . BASE_PATH . "pages/settings.php");
 exit;
-?>
